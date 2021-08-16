@@ -1,0 +1,36 @@
+{% extends "orders/layout.html" %}
+{% load static %}
+
+{% block body %}
+    <h1>Menu</h1>
+
+    <ul>
+    {% for item in items %}
+        <li>
+            <img class="menu-item-img" src="{{ item.image }}" alt="">
+            <div>
+                <h4>{{ item.title }}</h4>
+                <p>{{ item.description }}</p>
+                <p>${{ item.price }}</p>
+                <select name="size">
+                    <option value="s">Small</option>
+                    <option value="l">Large</option>
+                </select>
+                <button>Add to Cart</button>
+            </div>
+        </li>
+    {% empty %}
+        <li>There are no items.</li>
+    {% endfor %}
+    </ul>
+{% endblock %}
+
+{% block script %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('select').onchange = () => {
+                const size = this.value;
+            }
+        });
+    </script>
+{% endblock %}
