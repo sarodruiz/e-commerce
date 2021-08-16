@@ -1,16 +1,13 @@
-from orders.models import Pizza
+from .models import User, Pizza
 from django.http import HttpResponse
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
 from django.urls import reverse
 from django.db import IntegrityError
-#from django.contrib.auth.models import User
-from .models import User
 
 # Create your views here.
 def index(request):
-    #return HttpResponse("Project 3: TODO")
     return render(request, "orders/index.html")
 
 def login_view(request):
@@ -47,14 +44,9 @@ def register(request):
                 "message": "Passwords must match."
             })
         try:
-            #user = User.objects.create_user(username, first_name, last_name, email, password)
-            user = User.objects.create(
-                username=username,
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                password=password
-            )
+            user = User.objects.create_user(username, email, password)
+            user.first_name = first_name
+            user.last_name = last_name
             user.save()
         except IntegrityError:
             return render(request, "order/register.html", {
