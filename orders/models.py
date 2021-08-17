@@ -19,9 +19,19 @@ class Pizza(models.Model):
 
 class OrderItem(models.Model):
     item = models.ForeignKey(Pizza, on_delete=models.CASCADE)
+    quantity = models.IntegerField(default=1)
+
+    def final_price(self):
+        return self.item.price * self.quantity
 
 class Order(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="order")
-    items = models.ManyToManyField(Pizza, related_name="orders")
+    items = models.ManyToManyField(OrderItem, related_name="orders")
     timestamp = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     placed = models.BooleanField(default=False)
+
+    def final_price(self):
+        total = 0
+        for order_item in self.items.all():
+            total += order_item.final_price()
+        return total

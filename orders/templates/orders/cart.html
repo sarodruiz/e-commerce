@@ -1,0 +1,30 @@
+{% extends "orders/layout.html" %}
+{% load static %}
+
+{% block body %}
+    <h1>Cart</h1>
+
+    <ul>
+        {% for item in order.items.all %}
+        <li>
+            <h4>{{ item.item.title }}</h4>
+            <h4>${{ item.item.price }}</h4>
+            <h4>x{{ item.quantity }}</h4>
+            <button class="remove-btn" data-id="{{ item.id }}">Remove</button>
+        </li>
+        {% empty %}
+        <li>
+            There are no items in the cart.
+        </li>
+        {% endfor %}
+    </ul>
+
+    <h4>Total: ${{ order.final_price }}</h4>
+
+    <button>Checkout</button>
+    <button>Cancel Order</button>
+{% endblock %}
+
+{% block script %}
+<script src="{% static 'orders/cart.js' %}"></script>
+{% endblock %}

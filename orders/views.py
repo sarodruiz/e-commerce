@@ -1,10 +1,13 @@
-from .models import User, Pizza
+import json
+from .models import User, Pizza, OrderItem, Order
 from django.http import HttpResponse
-from django.http.response import HttpResponseRedirect
+from django.http.response import HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
 from django.urls import reverse
 from django.db import IntegrityError
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
 
 # Create your views here.
 def index(request):
@@ -61,4 +64,79 @@ def menu(request):
     items = Pizza.objects.all()
     return render(request, "orders/menu.html", {
         "items": items
+    })
+
+@login_required
+@csrf_exempt
+def add_to_cart(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        item_id = data.get("id")
+        item = Pizza.objects.get(pk=item_id)
+
+        try:
+            order = Order.objects.get(user=request.user, placed=False)
+        except Order.DoesNotExist:
+            order = None
+
+        if order is not None:
+            try:
+                order_item = order.items.get(item__id=item.id)
+            except OrderItem.DoesNotExist:
+                order_item = None
+
+            if order_item is not None:
+                order_item.quantity = order_item.quantity + 1
+                order_item.save()
+            else:
+                order_item = OrderItem.objects.create(item=item)
+                order.items.add(order_item)
+        else:
+            order_item = OrderItem.objects.create(item=item)
+            order = Order.objects.create(user=request.user)
+            order.items.add(order_item)
+            order.save()
+
+        items = order.items.all()
+        #return JsonResponse([item.serialize() for item in items], safe=False)
+        return JsonResponse({
+            "status": "success"
+            })
+
+@csrf_exempt
+@login_required
+def remove_from_cart(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        item_id = data.get("id")
+        item = Pizza.objects.get(pk=item_id)
+        
+        try:
+            order = Order.objects.get(user=request.user, placed=False)
+        except Order.DoesNotExist:
+            order = None
+
+        if order is not None:
+            try:
+                order_item = order.items.get(item__id=item.id)
+            except OrderItem.DoesNotExist:
+                order_item = None
+            if order_item is not None:
+                order.items.remove(order_item)
+
+        items = order.items.all()
+        #return JsonResponse([item.serialize() for item in items], safe=False)
+        return JsonResponse({
+            "status": "success"
+            })
+
+@login_required
+def cart(request):
+    try:
+        order = Order.objects.get(user=request.user, placed=False)
+    except Order.DoesNotExist:
+        order = None
+
+    return render(request, "orders/cart.html", {
+        "order": order
     })
