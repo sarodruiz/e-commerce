@@ -5,12 +5,12 @@
     <h1>Cart</h1>
 
     <ul>
-        {% for item in order.items.all %}
+        {% for order_item in order.items.all %}
         <li>
-            <h4>{{ item.item.title }}</h4>
-            <h4>${{ item.item.price }}</h4>
-            <h4>x{{ item.quantity }}</h4>
-            <button class="remove-btn" data-id="{{ item.id }}">Remove</button>
+            <h4>{{ order_item.item.title }}</h4>
+            <h4>${{ order_item.item.price }}</h4>
+            <h4>x{{ order_item.quantity }}</h4>
+            <button class="remove-btn" data-id="{{ order_item.id }}">Remove</button>
         </li>
         {% empty %}
         <li>
@@ -21,10 +21,16 @@
 
     <h4>Total: ${{ order.final_price }}</h4>
 
-    <button>Checkout</button>
-    <button>Cancel Order</button>
+    <!-- STRIPE -->
+    <form action="{% url 'create-checkout-session' %}" method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="order_id" value="{{ order.id }}">
+        <button type="submit" {% if order.is_empty %} disabled {% endif %}>Checkout</button>
+    </form>
 {% endblock %}
 
 {% block script %}
 <script src="{% static 'orders/cart.js' %}"></script>
+<script src="https://polyfill.io/v3/polyfill.min.js?version=3.52.1&features=fetch"></script>
+<script src="https://js.stripe.com/v3/"></script>
 {% endblock %}

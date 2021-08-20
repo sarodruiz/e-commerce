@@ -1,13 +1,19 @@
 import json
-from .models import User, Pizza, OrderItem, Order
-from django.http import HttpResponse
+import stripe
+
+from django.http import HttpResponse, JsonResponse
 from django.http.response import HttpResponseRedirect, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.contrib.auth import authenticate, login, logout
 from django.urls import reverse
 from django.db import IntegrityError
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
+
+from .models import User, Pizza, OrderItem, Order
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 # Create your views here.
 def index(request):
@@ -67,7 +73,18 @@ def menu(request):
     })
 
 @login_required
+def cart(request):
+    try:
+        order = Order.objects.get(user=request.user, placed=False)
+    except Order.DoesNotExist:
+        order = None
+
+    return render(request, "orders/cart.html", {
+        "order": order
+    })
+
 @csrf_exempt
+@login_required
 def add_to_cart(request):
     if request.method == "POST":
         data = json.loads(request.body)
@@ -108,8 +125,7 @@ def add_to_cart(request):
 def remove_from_cart(request):
     if request.method == "POST":
         data = json.loads(request.body)
-        item_id = data.get("id")
-        item = Pizza.objects.get(pk=item_id)
+        order_item_id = data.get("id")
         
         try:
             order = Order.objects.get(user=request.user, placed=False)
@@ -118,7 +134,7 @@ def remove_from_cart(request):
 
         if order is not None:
             try:
-                order_item = order.items.get(item__id=item.id)
+                order_item = order.items.get(id=order_item_id)
             except OrderItem.DoesNotExist:
                 order_item = None
             if order_item is not None:
@@ -130,13 +146,52 @@ def remove_from_cart(request):
             "status": "success"
             })
 
+# STRIPE
+@csrf_exempt
 @login_required
-def cart(request):
-    try:
-        order = Order.objects.get(user=request.user, placed=False)
-    except Order.DoesNotExist:
-        order = None
+def create_checkout_session(request):
+    if request.method == "POST":
+        try:
+            order_id = request.POST.get("order_id")
+            order = Order.objects.get(pk=order_id)
+            print(order.description())
+            YOUR_DOMAIN = "http://127.0.0.1:8000"
+            price = f'{order.final_price() * 100}'
+            print(price)
+            checkout_session = stripe.checkout.Session.create(
+                payment_method_types=[
+                'card',
+                ],
+                line_items=[
+                    {
+                        # TODO: replace this with the `price` of the product you want to sell
+                        #'price': 'price_1JPfTdCxS7OMcLHFcnDLA7Af',
 
-    return render(request, "orders/cart.html", {
-        "order": order
-    })
+                        'name': order,
+                        'currency': 'usd',
+                        'amount': order.final_price_cents(),
+                        'quantity': 1,
+                    },
+                ],
+                mode='payment',
+                success_url=YOUR_DOMAIN + '/success/',
+                cancel_url=YOUR_DOMAIN + '/cancel/',
+            )
+        except Exception as e:
+            return str(e)
+
+        return redirect(checkout_session.url, code=303)
+        return JsonResponse({
+            'id': checkout_session.id
+        })
+
+@login_required
+def success(request):
+    order = Order.objects.get(user=request.user, placed=False)
+    order.placed = True
+    order.save()
+    return render(request, "orders/success.html")
+
+@login_required
+def cancel(request):
+    return render(request, "orders/cancel.html")
